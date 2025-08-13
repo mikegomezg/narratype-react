@@ -1,0 +1,42 @@
+{
+    "name": "narratype-client",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "tsc -b && vite build",
+        "preview": "vite preview"
+    },
+    "dependencies": {
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1",
+        "react-router-dom": "^6.26.2",
+        "localforage": "^1.10.0",
+        "match-sorter": "^8.0.0",
+        "sort-by": "^1.2.0",
+        "@radix-ui/react-dialog": "^1.1.2",
+        "@radix-ui/react-dropdown-menu": "^2.1.2",
+        "@radix-ui/react-label": "^2.0.2",
+        "@radix-ui/react-select": "^2.1.2",
+        "@radix-ui/react-slot": "^1.1.0",
+        "@radix-ui/react-tabs": "^1.1.2",
+        "@radix-ui/react-toast": "^1.2.2",
+        "class-variance-authority": "^0.7.0",
+        "clsx": "^2.1.1",
+        "tailwind-merge": "^2.5.2",
+        "lucide-react": "^0.441.0",
+        "date-fns": "^3.6.0",
+        "recharts": "^2.13.0"
+    },
+    "devDependencies": {
+        "@types/react": "^18.3.5",
+        "@types/react-dom": "^18.3.0",
+        "@vitejs/plugin-react": "^4.3.1",
+        "typescript": "^5.5.4",
+        "vite": "^5.4.3",
+        "tailwindcss": "^4.1.11",
+        "@tailwindcss/vite": "^4.0.0-alpha.25",
+        "autoprefixer": "^10.4.20"
+    }
+}

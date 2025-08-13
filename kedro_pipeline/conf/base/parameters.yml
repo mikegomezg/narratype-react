@@ -1,0 +1,21 @@
+input_dir: "../texts/input"
+output_dir: "../texts/output"
+
+exercise_generation:
+  touch_typing_length: 120
+  word_exercise_length: 128
+  phrase_exercise_length: 256
+  full_text_length: 512
+  exercises_per_lesson: 8
+  lesson_structure: [2, 2, 2, 2]
+
+text_analysis:
+  min_word_length: 3
+  max_word_length: 15
+  target_readability: 8.0
+  complexity_weights:
+    vocabulary: 0.3
+    sentence_structure: 0.3
+    punctuation: 0.2
+    technical_terms: 0.2
+

@@ -1,0 +1,16 @@
+raw_texts:
+  type: pickle.PickleDataset
+  filepath: data/01_raw/texts.pkl
+
+validated_texts:
+  type: pickle.PickleDataset
+  filepath: data/02_intermediate/validated_texts.pkl
+
+analyzed_texts:
+  type: pickle.PickleDataset
+  filepath: data/03_primary/analyzed_texts.pkl
+
+generated_exercises:
+  type: json.JSONDataset
+  filepath: data/04_feature/exercises.json
+

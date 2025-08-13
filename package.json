@@ -1,0 +1,18 @@
+{
+    "name": "narratype-react",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "dev": "concurrently \"pnpm run dev:client\" \"pnpm run dev:server\"",
+        "dev:client": "cd client && pnpm dev",
+        "dev:server": "cd server && uvicorn app.main:app --reload --port 8000",
+        "build": "cd client && pnpm build",
+        "preview": "cd client && pnpm preview",
+        "generate-samples": "python scripts/generate-samples.py",
+        "db:init": "cd server && python -c \"import asyncio; from app.database import init_db; asyncio.run(init_db())\"",
+        "kedro:run": "cd kedro_pipeline && kedro run"
+    },
+    "devDependencies": {
+        "concurrently": "^8.2.2"
+    }
+}
