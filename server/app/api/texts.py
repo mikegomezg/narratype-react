@@ -3,6 +3,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 import aiosqlite
+import re
 
 from app.database import get_db
 
@@ -97,3 +98,108 @@ async def toggle_favorite(
     )
     await db.commit()
     return {"success": True}
+
+
+@router.get("/{text_id}/content")
+async def get_text_content(
+    text_id: int,
+    db: aiosqlite.Connection = Depends(get_db)
+):
+    """Get the full content of a text for practice"""
+    # First try to get from database
+    cursor = await db.execute(
+        "SELECT * FROM texts WHERE id = ?",
+        (text_id,)
+    )
+    db_text = await cursor.fetchone()
+
+    if db_text:
+        filename = db_text["filename"]
+        try:
+            with open(filename, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            # Parse and remove metadata headers
+            lines = content.split('\n')
+            content_start = 0
+            for i, line in enumerate(lines):
+                if line.strip() and not line.startswith('#'):
+                    content_start = i
+                    break
+
+            clean_content = '\n'.join(lines[content_start:]).strip()
+
+            # Update last_practiced
+            await db.execute(
+                "UPDATE texts SET last_practiced = datetime('now'), times_practiced = times_practiced + 1 WHERE id = ?",
+                (text_id,)
+            )
+            await db.commit()
+
+            return {
+                "id": text_id,
+                "title": db_text["title"],
+                "content": clean_content,
+                "word_count": len(clean_content.split())
+            }
+        except Exception as e:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail=f"Could not read text file: {e}")
+
+    from fastapi import HTTPException
+    raise HTTPException(status_code=404, detail="Text not found")
+
+
+@router.post("/register")
+async def register_text(
+    filename: str,
+    db: aiosqlite.Connection = Depends(get_db)
+):
+    """Register a text in the database (called when first practiced)"""
+    # Check if already exists
+    cursor = await db.execute(
+        "SELECT id FROM texts WHERE filename = ?",
+        (filename,)
+    )
+    existing = await cursor.fetchone()
+
+    if existing:
+        return {"id": existing["id"]}
+
+    # Parse file for metadata
+    path = Path(filename)
+    if not path.exists():
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="File not found")
+
+    content = path.read_text(encoding='utf-8')
+    metadata: dict[str, str] = {}
+
+    for line in content.split('\n')[:10]:
+        if line.startswith('#'):
+            match = re.match(r'#\s*(\w+):\s*(.+)', line)
+            if match:
+                key, value = match.groups()
+                metadata[key] = value.strip()
+
+    # Insert into database
+    await db.execute(
+        """
+        INSERT INTO texts (filename, display_path, title, author, category, difficulty, word_count)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            filename,
+            str(path.relative_to(Path("../texts/input"))),
+            metadata.get("title", path.stem.replace("_", " ").title()),
+            metadata.get("author"),
+            metadata.get("category", "uncategorized"),
+            metadata.get("difficulty"),
+            len(content.split())
+        )
+    )
+    await db.commit()
+
+    cursor = await db.execute("SELECT last_insert_rowid() as id")
+    result = await cursor.fetchone()
+    return {"id": result["id"]}

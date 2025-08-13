@@ -3,4 +3,7 @@ export * from './ui/card'
 export * from './ui/input'
 export * from './ui/label'
 export * from './ui/tabs'
+export * from './ui/toast'
+export * from './ui/progress'
+export * from './ui/select'
 
