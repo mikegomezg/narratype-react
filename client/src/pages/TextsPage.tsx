@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Star, StarOff, Search } from 'lucide-react'
+import { demoTexts } from '@/demo/demoData'
+import { getFavorites, isFavorited, toggleFavorite } from '@/utils/favorites'
 
 type TextItem = {
     id?: number
@@ -34,8 +36,31 @@ export default function TextsPage() {
     }, [])
 
     const fetchTexts = async () => {
-        const response = await fetch('http://localhost:8000/api/texts/')
-        const data = await response.json()
+        let data: TextItem[] = []
+        try {
+            const response = await fetch('http://localhost:8000/api/texts/')
+            if (response.ok) {
+                data = await response.json()
+            }
+        } catch { }
+
+        // Merge demo texts when no filesystem texts present
+        if (!data || data.length === 0) {
+            data = demoTexts.map((d) => ({
+                id: undefined,
+                filename: d.filename,
+                display_path: d.display_path,
+                title: d.title,
+                author: d.author,
+                category: d.category,
+                difficulty: d.difficulty,
+                word_count: d.word_count,
+                is_favorite: isFavorited(d.filename),
+                last_practiced: undefined,
+                times_practiced: 0,
+            }))
+        }
+
         setTexts(data)
         setFilteredTexts(data)
 
@@ -68,9 +93,15 @@ export default function TextsPage() {
         setFilteredTexts(filtered)
     }, [search, categoryFilter, difficultyFilter, texts])
 
-    const toggleFavorite = async (text: TextItem) => {
+    const handleFavoriteClick = async (text: TextItem) => {
+        if (String(text.filename).startsWith('demo://')) {
+            const nowFav = toggleFavorite(text.filename)
+            setTexts((prev) => prev.map((t) => (t.filename === text.filename ? { ...t, is_favorite: nowFav } : t)))
+            setFilteredTexts((prev) => prev.map((t) => (t.filename === text.filename ? { ...t, is_favorite: nowFav } : t)))
+            return
+        }
+
         if (!text.id) {
-            // Register text first
             const response = await fetch('http://localhost:8000/api/texts/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -79,13 +110,11 @@ export default function TextsPage() {
             const data = await response.json()
             text.id = data.id
         }
-
         await fetch(`http://localhost:8000/api/texts/${text.id}/favorite`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ is_favorite: !text.is_favorite })
         })
-
         fetchTexts()
     }
 
@@ -153,7 +182,7 @@ export default function TextsPage() {
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    onClick={() => toggleFavorite(text)}
+                                    onClick={() => handleFavoriteClick(text)}
                                     className="shrink-0"
                                 >
                                     {text.is_favorite ? (
@@ -181,7 +210,7 @@ export default function TextsPage() {
                                 </p>
                             )}
 
-                            <Link to={text.id ? `/practice/${text.id}` : '#'}>
+                            <Link to={text.id ? `/practice/${text.id}` : `/practice?demo=${encodeURIComponent(text.filename)}`}>
                                 <Button
                                     className="w-full"
                                     onClick={async () => {
@@ -193,7 +222,11 @@ export default function TextsPage() {
                                                 body: JSON.stringify({ filename: text.filename })
                                             })
                                             const data = await response.json()
-                                            window.location.href = `/practice/${data.id}`
+                                            if (data?.id) {
+                                                window.location.href = `/practice/${data.id}`
+                                            } else {
+                                                window.location.href = `/practice?demo=${encodeURIComponent(text.filename)}`
+                                            }
                                         }
                                     }}
                                 >

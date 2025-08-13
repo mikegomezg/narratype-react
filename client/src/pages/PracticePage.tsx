@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -33,15 +33,23 @@ export default function PracticePage() {
     const [errors, setErrors] = useState(0)
     const [session, setSession] = useState<SessionData | null>(null)
     const [isComplete, setIsComplete] = useState(false)
+    const [searchParams] = useSearchParams()
 
     // Load text content
     useEffect(() => {
+        const demoFilename = searchParams.get('demo')
+        if (demoFilename) {
+            import('@/demo/demoData').then(({ getDemoTextByFilename }) => {
+                const d = getDemoTextByFilename(demoFilename)
+                if (d) setText({ id: 0, title: d.title, content: d.content, word_count: d.word_count })
+            })
+            return
+        }
         if (textId) {
             fetch(`http://localhost:8000/api/texts/${textId}/content`)
                 .then(r => r.json())
                 .then(setText)
                 .catch(() => {
-                    // If no textId or error, load a default text
                     setText({
                         id: 0,
                         title: 'Quick Practice',
@@ -50,7 +58,6 @@ export default function PracticePage() {
                     })
                 })
         } else {
-            // Load default practice text
             setText({
                 id: 0,
                 title: 'Quick Practice',
@@ -58,11 +65,24 @@ export default function PracticePage() {
                 word_count: 15
             })
         }
-    }, [textId])
+    }, [textId, searchParams])
 
     // Start session when text loads
     useEffect(() => {
         if (text && text.id !== undefined && !session) {
+            // For demo texts (id=0), don't call server
+            if (text.id === 0) {
+                setSession({
+                    sessionId: 0,
+                    textId: 0,
+                    startTime: Date.now(),
+                    charactersTyped: 0,
+                    errors: 0,
+                    wpm: 0,
+                    accuracy: 100,
+                })
+                return
+            }
             fetch('http://localhost:8000/api/sessions/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -142,11 +162,13 @@ export default function PracticePage() {
             errors: session.errors
         }
 
-        await fetch(`http://localhost:8000/api/sessions/${session.sessionId}/complete`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(finalStats)
-        })
+        if (session.sessionId && session.sessionId > 0) {
+            await fetch(`http://localhost:8000/api/sessions/${session.sessionId}/complete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(finalStats)
+            })
+        }
     }
 
     const restart = () => {
@@ -156,6 +178,20 @@ export default function PracticePage() {
         setSession(null)
         setIsComplete(false)
     }
+
+    // Keyboard shortcuts: Esc to restart, Shift+Tab to library
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                restart()
+            } else if (e.key === 'Tab' && e.shiftKey) {
+                e.preventDefault()
+                navigate('/texts')
+            }
+        }
+        window.addEventListener('keydown', handleKeyDown)
+        return () => window.removeEventListener('keydown', handleKeyDown)
+    }, [navigate])
 
     if (!text) return <div>Loading...</div>
 

@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Star, Clock, TrendingUp } from 'lucide-react'
+import { demoTexts } from '@/demo/demoData'
+import { isFavorited } from '@/utils/favorites'
 
 type TextItem = {
     id?: number
@@ -26,10 +28,26 @@ export default function HomePage() {
     useEffect(() => {
         // Fetch favorites
         fetch('http://localhost:8000/api/texts/')
-            .then(r => r.json())
+            .then(r => (r.ok ? r.json() : Promise.resolve([])))
             .then((texts: TextItem[]) => {
-                setFavorites(texts.filter(t => t.is_favorite).slice(0, 3))
-                setRecent(texts.filter(t => t.last_practiced).slice(0, 3))
+                let data = texts
+                if (!data || data.length === 0) {
+                    data = demoTexts.map((d) => ({
+                        id: undefined,
+                        filename: d.filename,
+                        display_path: d.display_path,
+                        title: d.title,
+                        author: d.author,
+                        category: d.category,
+                        difficulty: d.difficulty,
+                        word_count: d.word_count,
+                        is_favorite: isFavorited(d.filename),
+                        last_practiced: undefined,
+                        times_practiced: 0,
+                    }))
+                }
+                setFavorites(data.filter(t => t.is_favorite).slice(0, 3))
+                setRecent(data.filter(t => t.last_practiced).slice(0, 3))
             })
 
         // Fetch stats
