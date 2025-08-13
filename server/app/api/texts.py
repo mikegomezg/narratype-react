@@ -25,6 +25,14 @@ class TextMetadata(BaseModel):
     times_practiced: int = 0
 
 
+class FavoriteRequest(BaseModel):
+    is_favorite: bool
+
+
+class RegisterRequest(BaseModel):
+    filename: str
+
+
 def scan_texts_directory() -> List[dict]:
     """Scan the texts/input directory for available texts"""
     texts_dir = Path("../texts/input")
@@ -88,13 +96,13 @@ async def list_texts(db: aiosqlite.Connection = Depends(get_db)):
 @router.post("/{text_id}/favorite")
 async def toggle_favorite(
     text_id: int,
-    is_favorite: bool,
+    payload: FavoriteRequest,
     db: aiosqlite.Connection = Depends(get_db)
 ):
     """Toggle favorite status for a text"""
     await db.execute(
         "UPDATE texts SET is_favorite = ? WHERE id = ?",
-        (1 if is_favorite else 0, text_id)
+        (1 if payload.is_favorite else 0, text_id)
     )
     await db.commit()
     return {"success": True}
@@ -152,14 +160,14 @@ async def get_text_content(
 
 @router.post("/register")
 async def register_text(
-    filename: str,
+    payload: RegisterRequest,
     db: aiosqlite.Connection = Depends(get_db)
 ):
     """Register a text in the database (called when first practiced)"""
     # Check if already exists
     cursor = await db.execute(
         "SELECT id FROM texts WHERE filename = ?",
-        (filename,)
+        (payload.filename,)
     )
     existing = await cursor.fetchone()
 
@@ -167,7 +175,7 @@ async def register_text(
         return {"id": existing["id"]}
 
     # Parse file for metadata
-    path = Path(filename)
+    path = Path(payload.filename)
     if not path.exists():
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="File not found")
@@ -189,7 +197,7 @@ async def register_text(
         VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            filename,
+            payload.filename,
             str(path.relative_to(Path("../texts/input"))),
             metadata.get("title", path.stem.replace("_", " ").title()),
             metadata.get("author"),
