@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -34,6 +34,10 @@ export default function PracticePage() {
     const [session, setSession] = useState<SessionData | null>(null)
     const [isComplete, setIsComplete] = useState(false)
     const [searchParams] = useSearchParams()
+
+    const typedText = useMemo(() => (text ? text.content.slice(0, currentIndex) : ''), [text, currentIndex])
+    const currentChar = useMemo(() => (text ? text.content[currentIndex] ?? '' : ''), [text, currentIndex])
+    const remainingText = useMemo(() => (text ? text.content.slice(Math.min(currentIndex + 1, text.content.length)) : ''), [text, currentIndex])
 
     // Load text content
     useEffect(() => {
@@ -196,8 +200,8 @@ export default function PracticePage() {
     if (!text) return <div>Loading...</div>
 
     return (
-        <div className="max-w-4xl mx-auto space-y-6">
-            <Card>
+        <div className="relative max-w-4xl mx-auto space-y-6 pb-40">
+            <Card className="card">
                 <CardHeader>
                     <CardTitle>{text.title}</CardTitle>
                     <div className="flex gap-4 text-sm text-muted-foreground">
@@ -215,34 +219,33 @@ export default function PracticePage() {
                     {/* Progress bar */}
                     <Progress value={(currentIndex / text.content.length) * 100} />
 
-                    {/* Text display */}
-                    <div className="p-4 bg-muted rounded-lg font-mono text-lg leading-relaxed">
-                        {text.content.split('').map((char, idx) => {
-                            let className = ''
-                            if (idx < currentIndex) {
-                                className = 'text-green-600'
-                            } else if (idx === currentIndex) {
-                                className = 'bg-primary text-primary-foreground'
-                            }
-                            return (
-                                <span key={idx} className={className}>
-                                    {char}
-                                </span>
-                            )
-                        })}
+                    {/* Text display (efficient, minimal DOM) */}
+                    <div className="practice-text p-4 bg-muted rounded-lg font-mono text-lg leading-relaxed whitespace-pre-wrap">
+                        <span className="text-green-600">{typedText}</span>
+                        <span className="bg-primary text-primary-foreground">{currentChar || ' '}</span>
+                        <span>{remainingText}</span>
                     </div>
 
                     {/* Input area */}
                     {!isComplete ? (
-                        <textarea
-                            ref={inputRef}
-                            value={userInput}
-                            onChange={handleInput}
-                            className="w-full p-4 font-mono text-lg border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                            placeholder="Start typing..."
-                            rows={4}
-                            autoFocus
-                        />
+                        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[min(100%,_56rem)]">
+                            <div className="rounded-lg border border-neutral-800 bg-neutral-900/80 backdrop-blur shadow-lg">
+                                <textarea
+                                    ref={inputRef}
+                                    value={userInput}
+                                    onChange={handleInput}
+                                    className="w-full p-4 font-mono text-lg focus:outline-none bg-transparent text-neutral-100"
+                                    placeholder="Start typing..."
+                                    rows={3}
+                                    autoFocus
+                                    aria-label="Typing input"
+                                    autoCorrect="off"
+                                    autoCapitalize="none"
+                                    spellCheck={false}
+                                    inputMode="text"
+                                />
+                            </div>
+                        </div>
                     ) : (
                         <Card className="bg-green-50 border-green-200">
                             <CardContent className="p-6 text-center">

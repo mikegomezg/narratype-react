@@ -22,6 +22,9 @@
         --input: 214.3 31.8% 91.4%;
         --ring: 222.2 84% 4.9%;
         --radius: 0.5rem;
+        /* Brand palette for custom utility classes */
+        --brand-600: 217 91% 60%;
+        --brand-700: 217 91% 50%;
     }
 
     .dark {
@@ -44,5 +47,43 @@
         --border: 217.2 32.6% 17.5%;
         --input: 217.2 32.6% 17.5%;
         --ring: 212.7 26.8% 83.9%;
+    }
+
+    :root {
+        color-scheme: light dark;
+    }
+
+    html,
+    body,
+    #root {
+        height: 100%;
+    }
+
+    body {
+        /* Neutral dark default base simulating provided scheme */
+        @apply bg-neutral-950 text-neutral-100 antialiased;
+    }
+}
+
+@layer components {
+    .card {
+        @apply rounded-xl border border-neutral-800 bg-neutral-900/50 shadow-sm;
+    }
+
+    .btn {
+        @apply inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition;
+    }
+
+    .btn-primary {
+        @apply btn text-white;
+        background-color: hsl(var(--brand-600));
+    }
+
+    .btn-primary:hover {
+        background-color: hsl(var(--brand-700));
+    }
+
+    .btn-secondary {
+        @apply btn bg-neutral-800 hover:bg-neutral-700 text-neutral-100;
     }
 }
