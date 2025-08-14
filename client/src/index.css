@@ -75,7 +75,7 @@
     }
 
     .btn-primary {
-        @apply btn text-white;
+        @apply inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition text-white;
         background-color: hsl(var(--brand-600));
     }
 
@@ -84,6 +84,6 @@
     }
 
     .btn-secondary {
-        @apply btn bg-neutral-800 hover:bg-neutral-700 text-neutral-100;
+        @apply inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition bg-neutral-800 hover:bg-neutral-700 text-neutral-100;
     }
 }
