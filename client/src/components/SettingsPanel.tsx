@@ -31,8 +31,12 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     }
 
     return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-            <Card className="w-full max-w-lg">
+        <div className="fixed inset-0 bg-black z-50 flex items-center justify-center">
+            <div
+                className="absolute inset-0 bg-black/80"
+                onClick={onClose}
+            />
+            <Card className="relative w-full max-w-lg bg-neutral-900 border-neutral-800">
                 <CardHeader className="flex flex-row items-center justify-between">
                     <CardTitle className="flex items-center gap-2">
                         <SettingsIcon className="h-5 w-5" />
@@ -42,7 +46,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                         <X className="h-4 w-4" />
                     </Button>
                 </CardHeader>
-                <CardContent className="space-y-6">
+                <CardContent className="space-y-6 max-h-[70vh] overflow-y-auto">
                     {/* Layout Section */}
                     <div className="space-y-4">
                         <h3 className="text-sm font-semibold">Layout</h3>
@@ -128,14 +132,14 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex justify-between pt-4">
+                    <div className="flex justify-between pt-4 border-t border-neutral-800">
                         <Button variant="outline" onClick={handleReset}>
                             <RotateCcw className="h-4 w-4 mr-2" />
                             Reset to Defaults
                         </Button>
                         <div className="flex gap-2">
                             <Button variant="outline" onClick={onClose}>Cancel</Button>
-                            <Button onClick={handleSave}>
+                            <Button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700">
                                 <Save className="h-4 w-4 mr-2" />
                                 Save Settings
                             </Button>

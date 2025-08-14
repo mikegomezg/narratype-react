@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { Settings as SettingsIcon, Move, Eye, EyeOff } from 'lucide-react'
+import { Settings as SettingsIcon, Move, Eye, EyeOff, GripHorizontal, GripVertical } from 'lucide-react'
 import { useSettings } from '@/utils/settings'
 import { SettingsPanel } from '@/components/SettingsPanel'
 
@@ -41,9 +41,16 @@ export default function PracticePage() {
 
     const [editMode, setEditMode] = useState(false)
     const [showSettings, setShowSettings] = useState(false)
-    const [isDragging, setIsDragging] = useState(false)
+    // Enhanced dragging/state for edit mode
+    const [isDraggingPosition, setIsDraggingPosition] = useState(false)
+    const [isDraggingHeight, setIsDraggingHeight] = useState(false)
+    const [isDraggingWidth, setIsDraggingWidth] = useState(false)
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
-    const [tempPosition, setTempPosition] = useState(settings.typingAreaBottom)
+    const [tempDimensions, setTempDimensions] = useState({
+        bottom: settings.typingAreaBottom,
+        height: settings.typingAreaHeight,
+        width: settings.practiceAreaWidth,
+    })
 
     const contentString = useMemo(() => (text?.content ?? ''), [text])
     const typedText = useMemo(() => contentString.slice(0, currentIndex), [contentString, currentIndex])
@@ -200,37 +207,84 @@ export default function PracticePage() {
         setIsComplete(false)
     }
 
-    // Drag to reposition typing area
-    const handleMouseDown = (e: React.MouseEvent) => {
+    // Drag handlers: position, height, width
+    const handlePositionMouseDown = (e: React.MouseEvent) => {
         if (!editMode) return
-        setIsDragging(true)
+        e.preventDefault()
+        e.stopPropagation()
+        setIsDraggingPosition(true)
+        setDragStart({ x: e.clientX, y: e.clientY })
+    }
+
+    const handleHeightMouseDown = (e: React.MouseEvent) => {
+        if (!editMode) return
+        e.preventDefault()
+        e.stopPropagation()
+        setIsDraggingHeight(true)
+        setDragStart({ x: e.clientX, y: e.clientY })
+    }
+
+    const handleWidthMouseDown = (e: React.MouseEvent) => {
+        if (!editMode) return
+        e.preventDefault()
+        e.stopPropagation()
+        setIsDraggingWidth(true)
         setDragStart({ x: e.clientX, y: e.clientY })
     }
 
     const handleMouseMove = useCallback((e: MouseEvent) => {
-        if (!isDragging) return
-        const deltaY = dragStart.y - e.clientY
-        const newBottom = Math.max(20, Math.min(400, tempPosition + deltaY))
-        setTempPosition(newBottom)
-    }, [isDragging, dragStart, tempPosition])
+        if (isDraggingPosition) {
+            const deltaY = dragStart.y - e.clientY
+            const newBottom = Math.max(20, Math.min(400, tempDimensions.bottom + deltaY))
+            setTempDimensions(prev => ({ ...prev, bottom: newBottom }))
+        } else if (isDraggingHeight) {
+            const deltaY = dragStart.y - e.clientY
+            const newHeight = Math.max(80, Math.min(300, tempDimensions.height + deltaY))
+            setTempDimensions(prev => ({ ...prev, height: newHeight }))
+        } else if (isDraggingWidth) {
+            const deltaX = e.clientX - dragStart.x
+            const percentChange = (deltaX / window.innerWidth) * 100
+            const newWidth = Math.max(40, Math.min(100, tempDimensions.width + percentChange))
+            setTempDimensions(prev => ({ ...prev, width: newWidth }))
+        }
+    }, [isDraggingPosition, isDraggingHeight, isDraggingWidth, dragStart, tempDimensions])
 
     const handleMouseUp = useCallback(() => {
-        if (isDragging) {
-            setIsDragging(false)
-            updateSettings({ typingAreaBottom: tempPosition })
+        if (isDraggingPosition || isDraggingHeight || isDraggingWidth) {
+            setIsDraggingPosition(false)
+            setIsDraggingHeight(false)
+            setIsDraggingWidth(false)
+            updateSettings({
+                typingAreaBottom: tempDimensions.bottom,
+                typingAreaHeight: tempDimensions.height,
+                practiceAreaWidth: tempDimensions.width,
+            })
         }
-    }, [isDragging, tempPosition, updateSettings])
+    }, [isDraggingPosition, isDraggingHeight, isDraggingWidth, tempDimensions, updateSettings])
 
     useEffect(() => {
-        if (isDragging) {
+        if (isDraggingPosition || isDraggingHeight || isDraggingWidth) {
             document.addEventListener('mousemove', handleMouseMove)
             document.addEventListener('mouseup', handleMouseUp)
+            document.body.style.cursor = isDraggingWidth ? 'ew-resize' : isDraggingHeight ? 'ns-resize' : 'move'
+            document.body.style.userSelect = 'none'
             return () => {
                 document.removeEventListener('mousemove', handleMouseMove)
                 document.removeEventListener('mouseup', handleMouseUp)
+                document.body.style.cursor = ''
+                document.body.style.userSelect = ''
             }
         }
-    }, [isDragging, handleMouseMove, handleMouseUp])
+    }, [isDraggingPosition, isDraggingHeight, isDraggingWidth, handleMouseMove, handleMouseUp])
+
+    // Keep temp dimensions in sync with persisted settings
+    useEffect(() => {
+        setTempDimensions({
+            bottom: settings.typingAreaBottom,
+            height: settings.typingAreaHeight,
+            width: settings.practiceAreaWidth,
+        })
+    }, [settings])
 
     // Keyboard shortcuts: Esc to restart, Shift+Tab to library (disabled while in edit mode)
     useEffect(() => {
@@ -248,12 +302,16 @@ export default function PracticePage() {
 
     if (!text) return <div>Loading...</div>
 
+    const currentWidth = isDraggingWidth ? tempDimensions.width : settings.practiceAreaWidth
+    const currentBottom = isDraggingPosition ? tempDimensions.bottom : settings.typingAreaBottom
+    const currentHeight = isDraggingHeight ? tempDimensions.height : settings.typingAreaHeight
+
     return (
         <div
-            className="relative mx-auto space-y-6"
+            className="relative mx-auto space-y-6 transition-all duration-300 ease-out"
             style={{
-                maxWidth: `${settings.practiceAreaWidth}%`,
-                paddingBottom: `${settings.typingAreaBottom + settings.typingAreaHeight + 50}px`
+                maxWidth: `${currentWidth}%`,
+                paddingBottom: `${currentBottom + currentHeight + 50}px`
             }}
         >
             <div className="fixed top-20 right-4 z-40 flex flex-col gap-2">
@@ -283,7 +341,7 @@ export default function PracticePage() {
                 </Button>
             </div>
 
-            <Card className={`card ${editMode ? 'ring-2 ring-primary' : ''}`}>
+            <Card className={`card transition-all duration-300 ${editMode ? 'ring-2 ring-blue-500' : ''}`}>
                 <CardHeader>
                     {settings.showTitle && <CardTitle>{text.title}</CardTitle>}
                     {settings.showStats && (
@@ -304,35 +362,62 @@ export default function PracticePage() {
                         <Progress value={(contentString.length > 0 ? (currentIndex / contentString.length) * 100 : 0)} />
                     )}
 
-                    <div className={`practice-text p-4 bg-muted rounded-lg font-mono ${fontSizeClass} leading-relaxed whitespace-pre-wrap`}>
+                    <div className={`practice-text p-4 bg-muted rounded-lg font-mono ${fontSizeClass} leading-relaxed whitespace-pre-wrap relative`}>
                         <span className="text-green-600">{typedText}</span>
                         <span className="bg-primary text-primary-foreground">{currentChar || ' '}</span>
                         <span>{remainingText}</span>
                     </div>
 
+                    {editMode && (
+                        <>
+                            <div
+                                className="absolute top-1/2 -left-4 w-8 h-16 bg-blue-500/20 hover:bg-blue-500/30 rounded-r cursor-ew-resize flex items-center justify-center transition-colors"
+                                onMouseDown={handleWidthMouseDown}
+                                title="Drag to adjust width"
+                            >
+                                <GripHorizontal className="h-4 w-4 text-blue-500" />
+                            </div>
+                            <div
+                                className="absolute top-1/2 -right-4 w-8 h-16 bg-blue-500/20 hover:bg-blue-500/30 rounded-l cursor-ew-resize flex items-center justify-center transition-colors"
+                                onMouseDown={handleWidthMouseDown}
+                                title="Drag to adjust width"
+                            >
+                                <GripHorizontal className="h-4 w-4 text-blue-500" />
+                            </div>
+                        </>
+                    )}
+
                     {!isComplete ? (
                         <div
-                            className={`fixed left-1/2 -translate-x-1/2 z-50 transition-all ${editMode ? 'ring-2 ring-blue-500' : ''}`}
+                            className={`fixed left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ease-out ${editMode ? 'ring-2 ring-blue-500' : ''}`}
                             style={{
-                                bottom: `${isDragging ? tempPosition : settings.typingAreaBottom}px`,
-                                width: `min(100%, ${settings.practiceAreaWidth}rem)`,
-                                cursor: editMode ? 'move' : 'default'
+                                bottom: `${currentBottom}px`,
+                                width: `${currentWidth}%`,
+                                maxWidth: '100%'
                             }}
-                            onMouseDown={handleMouseDown}
                         >
                             {editMode && (
                                 <div className="text-center text-xs text-blue-500 mb-1">
-                                    Drag to reposition • Height: {settings.typingAreaHeight}px
+                                    Width: {Math.round(currentWidth)}% • Height: {currentHeight}px • Bottom: {currentBottom}px
                                 </div>
                             )}
-                            <div className="rounded-lg border border-neutral-800 bg-neutral-900/80 backdrop-blur shadow-lg">
+                            <div className="relative rounded-lg border border-neutral-800 bg-neutral-900 shadow-lg">
+                                {editMode && (
+                                    <div
+                                        className="absolute inset-x-0 -top-3 h-6 bg-blue-500/20 hover:bg-blue-500/30 rounded-t cursor-move flex items-center justify-center transition-colors"
+                                        onMouseDown={handlePositionMouseDown}
+                                        title="Drag to move"
+                                    >
+                                        <GripHorizontal className="h-4 w-4 text-blue-500" />
+                                    </div>
+                                )}
                                 <textarea
                                     ref={inputRef}
                                     value={userInput}
                                     onChange={handleInput}
-                                    className={`w-full p-4 font-mono ${fontSizeClass} focus:outline-none bg-transparent text-neutral-100`}
+                                    className={`w-full p-4 font-mono ${fontSizeClass} focus:outline-none bg-transparent text-neutral-100 resize-none`}
                                     placeholder="Start typing..."
-                                    style={{ height: `${settings.typingAreaHeight}px` }}
+                                    style={{ height: `${currentHeight}px` }}
                                     autoFocus={settings.autoFocusInput && !editMode}
                                     disabled={editMode}
                                     aria-label="Typing input"
@@ -340,6 +425,15 @@ export default function PracticePage() {
                                     autoCapitalize="none"
                                     spellCheck={false}
                                 />
+                                {editMode && (
+                                    <div
+                                        className="absolute inset-x-0 -bottom-3 h-6 bg-blue-500/20 hover:bg-blue-500/30 rounded-b cursor-ns-resize flex items-center justify-center transition-colors"
+                                        onMouseDown={handleHeightMouseDown}
+                                        title="Drag to resize height"
+                                    >
+                                        <GripVertical className="h-4 w-4 text-blue-500" />
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ) : (
