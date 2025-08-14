@@ -3,6 +3,9 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { Settings as SettingsIcon, Move, Eye, EyeOff } from 'lucide-react'
+import { useSettings } from '@/utils/settings'
+import { SettingsPanel } from '@/components/SettingsPanel'
 
 type TextContent = {
     id?: number
@@ -26,6 +29,7 @@ export default function PracticePage() {
     const { textId } = useParams()
     const navigate = useNavigate()
     const inputRef = useRef<HTMLTextAreaElement>(null)
+    const { settings, updateSettings } = useSettings()
 
     const [text, setText] = useState<TextContent | null>(null)
     const [userInput, setUserInput] = useState('')
@@ -35,9 +39,23 @@ export default function PracticePage() {
     const [isComplete, setIsComplete] = useState(false)
     const [searchParams] = useSearchParams()
 
-    const typedText = useMemo(() => (text ? text.content.slice(0, currentIndex) : ''), [text, currentIndex])
-    const currentChar = useMemo(() => (text ? text.content[currentIndex] ?? '' : ''), [text, currentIndex])
-    const remainingText = useMemo(() => (text ? text.content.slice(Math.min(currentIndex + 1, text.content.length)) : ''), [text, currentIndex])
+    const [editMode, setEditMode] = useState(false)
+    const [showSettings, setShowSettings] = useState(false)
+    const [isDragging, setIsDragging] = useState(false)
+    const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+    const [tempPosition, setTempPosition] = useState(settings.typingAreaBottom)
+
+    const contentString = useMemo(() => (text?.content ?? ''), [text])
+    const typedText = useMemo(() => contentString.slice(0, currentIndex), [contentString, currentIndex])
+    const currentChar = useMemo(() => contentString[currentIndex] ?? '', [contentString, currentIndex])
+    const remainingText = useMemo(() => contentString.slice(Math.min(currentIndex + 1, contentString.length)), [contentString, currentIndex])
+
+    const fontSizeClass = {
+        small: 'text-base',
+        medium: 'text-lg',
+        large: 'text-xl',
+        xl: 'text-2xl'
+    }[settings.fontSize]
 
     // Load text content
     useEffect(() => {
@@ -109,7 +127,7 @@ export default function PracticePage() {
 
     // Handle typing
     const handleInput = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        if (!text || isComplete) return
+        if (!text || isComplete || editMode) return
 
         const input = e.target.value
         const lastChar = input[input.length - 1]
@@ -125,9 +143,8 @@ export default function PracticePage() {
                 if (currentIndex + 1 >= text.content.length) {
                     completeSession()
                 }
-            } else {
+            } else if (settings.highlightErrors) {
                 setErrors(prev => prev + 1)
-                // Don't update input on error (force correct typing)
                 e.target.value = userInput
             }
 
@@ -153,7 +170,7 @@ export default function PracticePage() {
                 setUserInput(input)
             }
         }
-    }, [text, currentIndex, userInput, errors, session, isComplete])
+    }, [text, currentIndex, userInput, errors, session, isComplete, editMode, settings.highlightErrors])
 
     const completeSession = async () => {
         if (!session || !session.sessionId) return
@@ -183,10 +200,42 @@ export default function PracticePage() {
         setIsComplete(false)
     }
 
-    // Keyboard shortcuts: Esc to restart, Shift+Tab to library
+    // Drag to reposition typing area
+    const handleMouseDown = (e: React.MouseEvent) => {
+        if (!editMode) return
+        setIsDragging(true)
+        setDragStart({ x: e.clientX, y: e.clientY })
+    }
+
+    const handleMouseMove = useCallback((e: MouseEvent) => {
+        if (!isDragging) return
+        const deltaY = dragStart.y - e.clientY
+        const newBottom = Math.max(20, Math.min(400, tempPosition + deltaY))
+        setTempPosition(newBottom)
+    }, [isDragging, dragStart, tempPosition])
+
+    const handleMouseUp = useCallback(() => {
+        if (isDragging) {
+            setIsDragging(false)
+            updateSettings({ typingAreaBottom: tempPosition })
+        }
+    }, [isDragging, tempPosition, updateSettings])
+
+    useEffect(() => {
+        if (isDragging) {
+            document.addEventListener('mousemove', handleMouseMove)
+            document.addEventListener('mouseup', handleMouseUp)
+            return () => {
+                document.removeEventListener('mousemove', handleMouseMove)
+                document.removeEventListener('mouseup', handleMouseUp)
+            }
+        }
+    }, [isDragging, handleMouseMove, handleMouseUp])
+
+    // Keyboard shortcuts: Esc to restart, Shift+Tab to library (disabled while in edit mode)
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
+            if (e.key === 'Escape' && !editMode) {
                 restart()
             } else if (e.key === 'Tab' && e.shiftKey) {
                 e.preventDefault()
@@ -195,54 +244,101 @@ export default function PracticePage() {
         }
         window.addEventListener('keydown', handleKeyDown)
         return () => window.removeEventListener('keydown', handleKeyDown)
-    }, [navigate])
+    }, [navigate, editMode])
 
     if (!text) return <div>Loading...</div>
 
     return (
-        <div className="relative max-w-4xl mx-auto space-y-6 pb-40">
-            <Card className="card">
+        <div
+            className="relative mx-auto space-y-6"
+            style={{
+                maxWidth: `${settings.practiceAreaWidth}%`,
+                paddingBottom: `${settings.typingAreaBottom + settings.typingAreaHeight + 50}px`
+            }}
+        >
+            <div className="fixed top-20 right-4 z-40 flex flex-col gap-2">
+                <Button
+                    variant={editMode ? "default" : "outline"}
+                    size="icon"
+                    onClick={() => setEditMode(!editMode)}
+                    title="Edit Layout"
+                >
+                    <Move className="h-4 w-4" />
+                </Button>
+                <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setShowSettings(true)}
+                    title="Settings"
+                >
+                    <SettingsIcon className="h-4 w-4" />
+                </Button>
+                <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => updateSettings({ showStats: !settings.showStats })}
+                    title={settings.showStats ? "Hide Stats" : "Show Stats"}
+                >
+                    {settings.showStats ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+            </div>
+
+            <Card className={`card ${editMode ? 'ring-2 ring-primary' : ''}`}>
                 <CardHeader>
-                    <CardTitle>{text.title}</CardTitle>
-                    <div className="flex gap-4 text-sm text-muted-foreground">
-                        <span>Words: {text.word_count}</span>
-                        {session && (
-                            <>
-                                <span>WPM: {session.wpm}</span>
-                                <span>Accuracy: {session.accuracy}%</span>
-                                <span>Errors: {session.errors}</span>
-                            </>
-                        )}
-                    </div>
+                    {settings.showTitle && <CardTitle>{text.title}</CardTitle>}
+                    {settings.showStats && (
+                        <div className="flex gap-4 text-sm text-muted-foreground">
+                            <span>Words: {text.word_count}</span>
+                            {session && (
+                                <>
+                                    <span>WPM: {session.wpm}</span>
+                                    <span>Accuracy: {session.accuracy}%</span>
+                                    <span>Errors: {session.errors}</span>
+                                </>
+                            )}
+                        </div>
+                    )}
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    {/* Progress bar */}
-                    <Progress value={(currentIndex / text.content.length) * 100} />
+                    {settings.showProgress && (
+                        <Progress value={(contentString.length > 0 ? (currentIndex / contentString.length) * 100 : 0)} />
+                    )}
 
-                    {/* Text display (efficient, minimal DOM) */}
-                    <div className="practice-text p-4 bg-muted rounded-lg font-mono text-lg leading-relaxed whitespace-pre-wrap">
+                    <div className={`practice-text p-4 bg-muted rounded-lg font-mono ${fontSizeClass} leading-relaxed whitespace-pre-wrap`}>
                         <span className="text-green-600">{typedText}</span>
                         <span className="bg-primary text-primary-foreground">{currentChar || ' '}</span>
                         <span>{remainingText}</span>
                     </div>
 
-                    {/* Input area */}
                     {!isComplete ? (
-                        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[min(100%,_56rem)]">
+                        <div
+                            className={`fixed left-1/2 -translate-x-1/2 z-50 transition-all ${editMode ? 'ring-2 ring-blue-500' : ''}`}
+                            style={{
+                                bottom: `${isDragging ? tempPosition : settings.typingAreaBottom}px`,
+                                width: `min(100%, ${settings.practiceAreaWidth}rem)`,
+                                cursor: editMode ? 'move' : 'default'
+                            }}
+                            onMouseDown={handleMouseDown}
+                        >
+                            {editMode && (
+                                <div className="text-center text-xs text-blue-500 mb-1">
+                                    Drag to reposition • Height: {settings.typingAreaHeight}px
+                                </div>
+                            )}
                             <div className="rounded-lg border border-neutral-800 bg-neutral-900/80 backdrop-blur shadow-lg">
                                 <textarea
                                     ref={inputRef}
                                     value={userInput}
                                     onChange={handleInput}
-                                    className="w-full p-4 font-mono text-lg focus:outline-none bg-transparent text-neutral-100"
+                                    className={`w-full p-4 font-mono ${fontSizeClass} focus:outline-none bg-transparent text-neutral-100`}
                                     placeholder="Start typing..."
-                                    rows={3}
-                                    autoFocus
+                                    style={{ height: `${settings.typingAreaHeight}px` }}
+                                    autoFocus={settings.autoFocusInput && !editMode}
+                                    disabled={editMode}
                                     aria-label="Typing input"
                                     autoCorrect="off"
                                     autoCapitalize="none"
                                     spellCheck={false}
-                                    inputMode="text"
                                 />
                             </div>
                         </div>
@@ -266,6 +362,12 @@ export default function PracticePage() {
                     )}
                 </CardContent>
             </Card>
+
+            <SettingsPanel
+                isOpen={showSettings}
+                onClose={() => setShowSettings(false)}
+                editMode={editMode}
+            />
         </div>
     )
 }

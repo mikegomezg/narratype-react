@@ -87,3 +87,29 @@
         @apply inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition bg-neutral-800 hover:bg-neutral-700 text-neutral-100;
     }
 }
+
+/* Animations and transitions for settings/features */
+@keyframes fade-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.animate-fade-in {
+    animation: fade-in 0.3s ease-in;
+}
+
+/* Edit mode visual feedback */
+.ring-2 {
+    box-shadow: 0 0 0 2px currentColor;
+}
+
+/* Smooth transitions for settings changes */
+.practice-text,
+.fixed {
+    transition: all 0.3s ease;
+}

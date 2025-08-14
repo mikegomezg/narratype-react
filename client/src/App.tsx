@@ -4,6 +4,7 @@ import HomePage from '@/pages/HomePage'
 import PracticePage from '@/pages/PracticePage'
 import TextsPage from '@/pages/TextsPage'
 import StatsPage from '@/pages/StatsPage'
+import SettingsPage from '@/pages/SettingsPage'
 
 function Layout() {
     return (
@@ -14,6 +15,7 @@ function Layout() {
                     <Link to="/texts"><Button variant="ghost">Library</Button></Link>
                     <Link to="/practice"><Button variant="ghost">Practice</Button></Link>
                     <Link to="/stats"><Button variant="ghost">Stats</Button></Link>
+                    <Link to="/settings"><Button variant="ghost">Settings</Button></Link>
                 </div>
             </nav>
             <main className="container mx-auto px-4 py-6">
@@ -32,6 +34,7 @@ const router = createBrowserRouter([
             { path: 'texts', element: <TextsPage /> },
             { path: 'practice/:textId?', element: <PracticePage /> },
             { path: 'stats', element: <StatsPage /> },
+            { path: 'settings', element: <SettingsPage /> },
         ],
     },
 ])
